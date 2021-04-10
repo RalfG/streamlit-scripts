@@ -7,7 +7,7 @@
 
 
 
-_Miscellaneous streamlit scripts_
+_Miscellaneous Streamlit scripts_
 
 
 ---
