@@ -3,7 +3,7 @@
 ![Issues](https://badgen.net/github/open-issues/ralfg/streamlit-scripts)
 ![Pulls](https://badgen.net/github/open-prs/ralfg/streamlit-scripts)
 ![License](https://badgen.net/github/license/ralfg/streamlit-scripts)
-![Twitter](https://badgen.net/twitter/follow/RalfG)
+![Twitter](https://badgen.net/twitter/follow/RalfGabriels)
 
 
 
