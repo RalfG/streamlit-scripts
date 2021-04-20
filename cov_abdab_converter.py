@@ -11,14 +11,28 @@ def dataframe_to_fasta_entry(
     csv_data,
     header_columns,
     sequence_columns,
-    line_ending="\n"
+    line_ending="\n",
+    max_header_length=None,
+    add_row_number=True
 ):
-    for row in csv_data.to_dict(orient='records'):
-        base_header = ">" + "|".join([row[h] for h in header_columns]).replace(" ", "_")
+    for i, row in enumerate(csv_data.to_dict(orient='records')):
+        row_number = str(i) + "|" if add_row_number else ""
+        base_header = "|".join([row[h] for h in header_columns]).replace(" ", "_")
         for t in sequence_columns:
             if isinstance(row[t], str):
                 if row[t] not in ["ND", "TBC"]:
-                    yield f"{base_header}|{t.replace(' ', '_')}{line_ending}{row[t]}{line_ending}"
+                    seq_column_title = t.replace(' ', '_')
+                    tmp_base_header = base_header
+                    if max_header_length:
+                        max_base_header_length = max_header_length - len(row_number) - len(seq_column_title) - 1
+                        if max_base_header_length < 5:
+                            raise ValueError(
+                                "`max_header_length` is too low to write meaningful fasta header."
+                            )
+                        if len(tmp_base_header) > max_base_header_length:
+                            tmp_base_header = tmp_base_header[:max_base_header_length]
+                    yield f">{row_number}{seq_column_title}|{tmp_base_header}{line_ending}{row[t]}{line_ending}"
+
 
 
 def write_entries(csv_data, output_file):
@@ -92,14 +106,28 @@ def main():
             "separate entry in the fasta file."
         )
     )
+    max_header_length = st.number_input(
+        label="Maximum length for fasta headers; set to zero for unlimited length",
+        min_value=0,
+        value=0
+    )
+    add_row_number = st.checkbox(
+        label="Prefix CSV row number to fasta headers",
+        help="Recommended to avoid duplicate headers and to be able to trace back sequences to their original source.",
+        value=True
+    )
 
     if st.button("Convert to fasta"):
         status_placeholder = st.empty()
         status_placeholder.info(":hourglass_flowing_sand: Converting...")
 
         try:
+            if max_header_length == 0:
+                max_header_length = None
             entries = [l for l in dataframe_to_fasta_entry(
-                csv_data, header_columns, sequence_columns
+                csv_data, header_columns, sequence_columns,
+                add_row_number=add_row_number,
+                max_header_length=max_header_length
             )]
             entries_top = "".join(entries[:10])
             entries_b64 = encode_object_for_url("".join(entries))
