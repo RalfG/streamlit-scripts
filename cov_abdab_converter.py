@@ -1,5 +1,6 @@
 import io
 import os
+import re
 
 import pandas as pd
 import streamlit as st
@@ -12,12 +13,16 @@ def dataframe_to_fasta_entry(
     header_columns,
     sequence_columns,
     line_ending="\n",
+    add_row_number=True,
+    cleanup_header=True,
     max_header_length=None,
-    add_row_number=True
+    max_line_length=58,
 ):
     for i, row in enumerate(csv_data.to_dict(orient='records')):
         row_number = str(i) + "|" if add_row_number else ""
         base_header = "|".join([row[h] for h in header_columns]).replace(" ", "_")
+        if cleanup_header:
+            base_header = re.sub("\W", "_", base_header)
         for t in sequence_columns:
             if isinstance(row[t], str):
                 if row[t] not in ["ND", "TBC"]:
@@ -31,7 +36,10 @@ def dataframe_to_fasta_entry(
                             )
                         if len(tmp_base_header) > max_base_header_length:
                             tmp_base_header = tmp_base_header[:max_base_header_length]
-                    yield f">{row_number}{seq_column_title}|{tmp_base_header}{line_ending}{row[t]}{line_ending}"
+                    sequence_lines = line_ending.join(
+                        [row[t][i:i+max_line_length] for i in range(0, len(row[t]), max_line_length)]
+                    )
+                    yield f">{row_number}{seq_column_title}|{tmp_base_header}{line_ending}{sequence_lines}{line_ending}"
 
 
 
@@ -107,13 +115,25 @@ def main():
         )
     )
     max_header_length = st.number_input(
-        label="Maximum length for fasta headers; set to zero for unlimited length",
+        label="Maximum header length (set to zero for unlimited length)",
+        help="Setting multiple header columns can result in lengthy headers. This option truncates headers that are too long.",
         min_value=0,
         value=0
+    )
+    max_line_length = st.number_input(
+        label="Maximum sequence line length",
+        help="If the sequence is longer than this value, it will be wrapped over multiple lines.",
+        min_value=10,
+        value=58,
     )
     add_row_number = st.checkbox(
         label="Prefix CSV row number to fasta headers",
         help="Recommended to avoid duplicate headers and to be able to trace back sequences to their original source.",
+        value=True
+    )
+    cleanup_header = st.checkbox(
+        label="Replace non-word characters with underscores in headers",
+        help="Some software does not accept special characters in fasta headers",
         value=True
     )
 
@@ -127,7 +147,9 @@ def main():
             entries = [l for l in dataframe_to_fasta_entry(
                 csv_data, header_columns, sequence_columns,
                 add_row_number=add_row_number,
-                max_header_length=max_header_length
+                cleanup_header=cleanup_header,
+                max_header_length=max_header_length,
+                max_line_length=max_line_length
             )]
             entries_top = "".join(entries[:10])
             entries_b64 = encode_object_for_url("".join(entries))
